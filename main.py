@@ -8,6 +8,7 @@ import mysql.connector
 from mysql.connector import Error
 import pandas as pd
 import plotly.express as px
+import isodate
 
 #streamlit run /home/quest/GVA/pythonProj/Projects/Utube-data-harvest/main.py
 
@@ -17,6 +18,8 @@ import plotly.express as px
 # Processed Channel ids
 #Money Pechu : UC7fQFl37yAOaPaoxQm-TqSA
 #Parithapangal : UCueYcgdqos0_PzNOq81zAFg
+
+
 #Mano's Try : UCvtg5-HdnKexj8f54dqFC7g
 #Vijo's fitness & Life style : UC44HG3HMtxG99cSjufSTWqA
 #1moRep : UCNmfEa6DKdYJMO31VG7UR_g
@@ -27,31 +30,34 @@ import plotly.express as px
 #Code Nanban : UCyxny8lsaIIBN1EOi0fS8qQ
 
 #Robinson Shalu : UCjL9x3rFphQbGtiyntRqcgg
+#Wild Bettea : UCao_i5pRVAyxIgk0In0iVig
 
 st.title('U-Tube Channel data Harvest')
 
 with st.sidebar:
-    #st.sidebar.title('Analysis')
     choose = option_menu("Data Harvest", ["Collection", "Migration", "Analysis"],
                          icons=['collection', 'database-up', 'graph-up'],
-                         menu_icon="activity", default_index=0,
+                         menu_icon="youtube", default_index=0,
                          styles={
                             "container": {"padding": "5!important", "background-color": "#fafafa"},
-                            "icon": {"color": "orange", "font-size": "25px"}, 
+                            "icon": {"color": "#000", "font-size": "25px"}, 
                             "nav-link": {"font-size": "16px", "text-align": "left", "margin":"0px", "--hover-color": "#eee"},
                             "nav-link-selected": {"background-color": "#1482e3"},
                         }
     )
 
 
-#API KEY : AIzaSyBRFakMlxJW7rSFNf-wYsRAtleaMducUqk
+#Youtube API KEY
 API_KEY = 'AIzaSyBBiolyaMjDDssDBYEoFVoO9t1_A5kcZAA'
 youtube = build('youtube','v3',developerKey=API_KEY)
 
+
+#Connection to MONGO DB
 client = pymongo.MongoClient("mongodb://localhost:27017/")
 db = client['utube_channel']
 
 
+#Connection to MYSQL
 connection = mysql.connector.connect(
         host ="localhost",
         user = "root",
@@ -63,7 +69,7 @@ cursor = connection.cursor()
 #Create DB
 cursor.execute("CREATE DATABASE IF NOT EXISTS utube_channel")
 
-#Create Table id int(16) NOT NULL AUTO_INCREMENT,
+#Create channesl table
 createChannelTable = """CREATE TABLE IF NOT EXISTS utube_channel.channel ( 
                              channel_id varchar(100) NOT NULL,
                              name varchar(255) NOT NULL,
@@ -75,7 +81,7 @@ createChannelTable = """CREATE TABLE IF NOT EXISTS utube_channel.channel (
                              PRIMARY KEY (channel_id)) """
 cursor.execute(createChannelTable)
 
-#Create Table id int(16) NOT NULL AUTO_INCREMENT,
+#Create videos Table
 createVideoTable = """CREATE TABLE IF NOT EXISTS utube_channel.videos ( 
                              channel_name varchar(200) NOT NULL,
                              channel_id varchar(100) NOT NULL,
@@ -84,7 +90,7 @@ createVideoTable = """CREATE TABLE IF NOT EXISTS utube_channel.videos (
                              thumbnail varchar(100) NOT NULL,
                              description LONGTEXT NOT NULL,
                              published_date varchar(100) NOT NULL,
-                             duration varchar(200) NOT NULL,
+                             duration DOUBLE NOT NULL,
                              view_count BIGINT DEFAULT 0,
                              like_count BIGINT DEFAULT 0,
                              comment_count int DEFAULT 0,
@@ -93,7 +99,7 @@ createVideoTable = """CREATE TABLE IF NOT EXISTS utube_channel.videos (
                              PRIMARY KEY (video_id)) """
 cursor.execute(createVideoTable)
 
-#Create Table id int(16) NOT NULL AUTO_INCREMENT,
+#Create comments Table
 createCommentTable = """CREATE TABLE IF NOT EXISTS utube_channel.comments ( 
                              comment_id varchar(100) NOT NULL,
                              video_id varchar(100) NOT NULL,
@@ -161,21 +167,42 @@ def getVideoDetails(v_ids):
                     id=','.join(v_ids[i:i+50])).execute()
         for video in response['items']:
             #print(video)
-            video_details = dict(channel_name = video['snippet']['channelTitle'],
-                                channel_id = video['snippet']['channelId'],
-                                video_id = video['id'],
-                                title = video['snippet']['title'],
-                                tags = video['snippet'].get('tags'),
-                                thumbnail = video['snippet']['thumbnails']['default']['url'],
-                                description = video['snippet']['description'],
-                                published_date = video['snippet']['publishedAt'],
-                                duration = video['contentDetails']['duration'],
-                                view_count = int(video['statistics']['viewCount']),
-                                like_count = video['statistics'].get('likeCount'),
-                                comment_count = video['statistics'].get('commentCount'),
-                                favorite_count = int(video['statistics']['favoriteCount']),
-                                definition = video['contentDetails']['definition'],
-                                caption_status = video['contentDetails']['caption']
+            channelName = video['snippet']['channelTitle']
+            channelId = video['snippet']['channelId']
+            videoId = video['id']
+            title = video['snippet']['title']
+            tags = video['snippet'].get('tags')
+            thumbnail = video['snippet']['thumbnails']['default']['url']
+            description = video['snippet']['description']
+            publisheDate = video['snippet']['publishedAt']
+            duration = isodate.parse_duration(video['contentDetails']['duration']).total_seconds()
+            durationStr = video['contentDetails']['duration']
+            viewCount = int(video['statistics']['viewCount'])
+            likeCount = video['statistics'].get('likeCount')
+            commentCount = video['statistics'].get('commentCount')
+            favoriteCount = int(video['statistics']['favoriteCount'])
+            definition = video['contentDetails']['definition']
+            captionStatus = video['contentDetails']['caption']
+
+
+            print(commentCount)
+            
+            video_details = dict(channel_name = channelName,
+                                channel_id = channelId,
+                                video_id = videoId,
+                                title = title,
+                                tags = tags,
+                                thumbnail = thumbnail,
+                                description = description,
+                                published_date = publisheDate,
+                                duration = duration,
+                                duration_str = durationStr,
+                                view_count = viewCount,
+                                like_count = 0 if likeCount == None else int(likeCount),
+                                comment_count = 0 if commentCount == None else int(commentCount),
+                                favorite_count = favoriteCount,
+                                definition = definition,
+                                caption_status = captionStatus
                                )
             video_stats.append(video_details)
     return video_stats
@@ -216,8 +243,8 @@ def getChannelList():
     return ch_name
 
 if choose == "Collection":
-    title = st.text_input('Please enter Youtube channel name')
-    st.write('The Channel name is', title)
+    title = st.text_input('Please enter Youtube channel ID')
+    st.write('The Channel ID is :  ', title)
 
     if title and st.button("Fetch Data"):
                 ch_details = getChannelData(title)
@@ -225,7 +252,7 @@ if choose == "Collection":
                 st.write(f'#### Extracted data from :green["{ch_details[0]["name"]}"] channel')
                 st.table(ch_details)
 
-    if title and st.button("Upload to MongoDB"):
+    if title and st.button("Save Data"):
                 with st.spinner('Please Wait for it...'):
                     ch_details = getChannelData(title)
                     videoIdLst = getVideoList(title)
@@ -251,7 +278,7 @@ if choose == "Collection":
 elif choose == "Migration":
     st.header('Migration')
     st.markdown("#   ")
-    st.markdown("### Select a channel to begin Transformation to SQL")
+    st.markdown("### Select a channel to migrate into MYSQL")
         
     channelLst = getChannelList()
 
@@ -268,13 +295,12 @@ elif choose == "Migration":
     selectedIndex = channelNames.index(user_inp)
     choosenChannelId = channelIds[selectedIndex]
 
-    print(choosenChannelId)
+    #print(choosenChannelId)
 
     #st.markdown("#   ")
     #st.markdown("### Selected channel is", str(choosenChannelId))
     def insert_into_channels():
                 col_channel = db.channel_data
-                #(%d,%s,%s,%d,%d,%d,%s,%s)
                 query = """INSERT INTO utube_channel.channel VALUES (%s,%s,%s,%s,%s,%s,%s)"""
                 for i in col_channel.find({"channel_id" : choosenChannelId},{'_id':0}):
                     #print(query,tuple(i.values()))
@@ -285,7 +311,7 @@ elif choose == "Migration":
         col_video = db.video_data
         query1 = """INSERT INTO utube_channel.videos VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
 
-        for i in col_video.find({"channel_id" : choosenChannelId},{"_id":0, "tags" : 0, "definition" : 0}):
+        for i in col_video.find({"channel_id" : choosenChannelId},{"_id":0, "tags" : 0, "definition" : 0, "duration_str" : 0}):
             t=tuple(i.values())
             #print(t)
             cursor.execute(query1,t)
@@ -313,7 +339,6 @@ elif choose == "Migration":
             st.success("Migration of selected collection to MySQL successful")
         except mysql.connector.Error as error:
             st.error("Failed to insert record into table {}".format(error))
-            #st.error("Channel details already transformed!!")
 
 
 
@@ -326,7 +351,7 @@ elif choose == "Analysis":
         '3. What are the top 10 most viewed videos and their respective channels?',
         '4. How many comments were made on each video, and what are their corresponding video names?',
         '5. Which videos have the highest number of likes, and what are their corresponding channel names?',
-        '6. What is the total number of likes and dislikes for each video, and what are their corresponding video names?',
+        '6. What is the total number of likes for each video, and what are their corresponding video names?',
         '7. What is the total number of views for each channel, and what are their corresponding channel names?',
         '8. What are the names of all the channels that have published videos in the year 2022?',
         '9. What is the average duration of all videos in each channel, and what are their corresponding channel names?',
@@ -434,32 +459,12 @@ elif choose == "Analysis":
         st.write(df)
         
      elif questionLst.index(selectedQues) == 9:
-        cursor.execute("""SELECT channel_name, 
-                        SUM(duration_sec) / COUNT(*) AS average_duration
-                        FROM (
-                            SELECT channel_name, 
-                            CASE
-                                WHEN duration REGEXP '^PT[0-9]+H[0-9]+M[0-9]+S$' THEN 
-                                TIME_TO_SEC(CONCAT(
-                                SUBSTRING_INDEX(SUBSTRING_INDEX(duration, 'H', 1), 'T', -1), ':',
-                            SUBSTRING_INDEX(SUBSTRING_INDEX(duration, 'M', 1), 'H', -1), ':',
-                            SUBSTRING_INDEX(SUBSTRING_INDEX(duration, 'S', 1), 'M', -1)
-                            ))
-                                WHEN duration REGEXP '^PT[0-9]+M[0-9]+S$' THEN 
-                                TIME_TO_SEC(CONCAT(
-                                '0:', SUBSTRING_INDEX(SUBSTRING_INDEX(duration, 'M', 1), 'T', -1), ':',
-                                SUBSTRING_INDEX(SUBSTRING_INDEX(duration, 'S', 1), 'M', -1)
-                            ))
-                                WHEN duration REGEXP '^PT[0-9]+S$' THEN 
-                                TIME_TO_SEC(CONCAT('0:0:', SUBSTRING_INDEX(SUBSTRING_INDEX(duration, 'S', 1), 'T', -1)))
-                                END AS duration_sec
-                        FROM utube_channel.videos
-                        ) AS subquery
-                        GROUP BY channel_name""")
+        cursor.execute("""SELECT channel_name , SUM(duration) / COUNT(*) AS average_duration
+                       FROM utube_channel.videos GROUP BY channel_name""")
         df = pd.DataFrame(cursor.fetchall(),columns=cursor.column_names
                           )
         st.write(df)
-        st.write("### :green[Average video duration for channels :]")
+        st.write("### :green[Average video duration for each channels :]")
         fig = px.bar(df,
                      x=cursor.column_names[0],
                      y=cursor.column_names[1],
