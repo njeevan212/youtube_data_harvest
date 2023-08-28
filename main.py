@@ -10,28 +10,6 @@ import pandas as pd
 import plotly.express as px
 import isodate
 
-#streamlit run /home/quest/GVA/pythonProj/Projects/Utube-data-harvest/main.py
-
-#Ex : content="vnd.youtube://www.youtube.com/channel/UCueYcgdqos0_PzNOq81zAFg"
-# quvi-utube-harvest-2
-
-# Processed Channel ids
-#Money Pechu : UC7fQFl37yAOaPaoxQm-TqSA
-#Parithapangal : UCueYcgdqos0_PzNOq81zAFg
-
-
-#Mano's Try : UCvtg5-HdnKexj8f54dqFC7g
-#Vijo's fitness & Life style : UC44HG3HMtxG99cSjufSTWqA
-#1moRep : UCNmfEa6DKdYJMO31VG7UR_g
-#Excite Wealth in Tamil : UC0kTmNbPe4YJZjVmdXE6-yg
-#Fronendhub : UCqtoGNQhYHClb1VQcnW_yoQ
-#April Investment : UCBC0Qqu3J4EIKLHBl94UcxQ
-#Driving Zone : UCR24cSnmKfo1nGB8JTQyZiw
-#Code Nanban : UCyxny8lsaIIBN1EOi0fS8qQ
-
-#Robinson Shalu : UCjL9x3rFphQbGtiyntRqcgg
-#Wild Bettea : UCao_i5pRVAyxIgk0In0iVig
-
 st.title('U-Tube Channel data Harvest')
 
 with st.sidebar:
@@ -113,7 +91,7 @@ createCommentTable = """CREATE TABLE IF NOT EXISTS utube_channel.comments (
 cursor.execute(createCommentTable)
 
 
-
+# To fetch the channel information against channel_ID
 def getChannelData(channelId):
     ch_data = []
     response = youtube.channels().list(part = 'snippet,contentDetails,statistics',
@@ -134,7 +112,7 @@ def getChannelData(channelId):
         ch_data.append(data)
     return ch_data
 
-
+# To fetch the video list against channel_ID
 def getVideoList(channelId):
     video_ids = []
     # get Uploads playlist id
@@ -157,7 +135,7 @@ def getVideoList(channelId):
             break
     return video_ids
 
-
+# To fetch the video's details against channel_ID
 def getVideoDetails(v_ids):
     video_stats = []
     
@@ -207,6 +185,7 @@ def getVideoDetails(v_ids):
             video_stats.append(video_details)
     return video_stats
 
+# To fetch the comments details against each video of the corresponding channel_ID
 def getCommentsDetails(v_id, channelId):
     comment_data = []
     try:
@@ -235,6 +214,7 @@ def getCommentsDetails(v_id, channelId):
         pass
     return comment_data
 
+# To fetch the channel list from MongoDB
 def getChannelList():   
     ch_name = []
     for channelObj in db.channel_data.find():
